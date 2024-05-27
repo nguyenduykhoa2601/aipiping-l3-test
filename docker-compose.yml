@@ -1,0 +1,54 @@
+version: '3'
+
+services:
+  fast-api:
+    build:
+      context: ./fast_api
+    container_name: "fast_api_app"
+    command: ["/bin/bash", "-c", "/fast_api/prestart.sh gunicorn -k uvicorn.workers.UvicornWorker -c /fast_api/gunicorn_conf.py main:app --bind 0.0.0.0:3000"]
+    depends_on:
+      - mongo_db
+      - prefect_agent
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MONGO_DB_HOST=mongo_db
+      - MONGO_DB_PORT=27017
+      - MONGO_DB_USERNAME=admin
+      - MONGO_DB_PASSWORD=${MONGO_DB_PASSWORD}
+      - PREFECT_API_URL=http://prefect_orion:${PREFECT_PORT}/api
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./fast_api:/fast_api
+
+  mongo_db:
+    image: mongo:latest
+    container_name: "mongo_db"
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_DB_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+
+  prefect_orion:
+    image: prefecthq/prefect:2.7.4-python3.8
+    container_name: "prefect_orion"
+    command: "prefect orion start --host 0.0.0.0 --port ${PREFECT_PORT}"
+    ports:
+      - "${PREFECT_PORT}:${PREFECT_PORT}"
+    environment:
+      - PREFECT_ORION_UI_API_URL=http://0.0.0.0:${PREFECT_PORT}/api
+
+  prefect_agent:
+    image: prefecthq/prefect:2.7.4-python3.8
+    container_name: "prefect_agent"
+    command: "prefect agent start --work-queue 'default'"
+    depends_on:
+      - prefect_orion
+    environment:
+      - PREFECT_API_URL=http://prefect_orion:${PREFECT_PORT}/api
+
+volumes:
+  mongo_data:

@@ -1,0 +1,10 @@
+fastapi
+pymongo
+gunicorn
+uvicorn
+prefect
+httpx
+openai==0.27
+pytest
+asyncio
+motor
